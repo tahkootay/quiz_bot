@@ -12,9 +12,10 @@ load_dotenv()
 
 # Установка констант из переменных окружения
 TOKEN = os.getenv('TG_TOKEN')
+ACCESS_MODE = os.getenv('ACCESS_MODE', 'restricted')  # 'open' для доступа для всех, 'restricted' для только разрешённых пользователей
 
 # Загрузка id разрешенных пользователей из .env и преобразование в список чисел
-# ALLOWED_USERS = list(map(int, os.getenv('ALLOWED_USERS', '').split(',')))
+ALLOWED_USERS = list(map(int, os.getenv('ALLOWED_USERS', '').split(','))) if ACCESS_MODE == 'restricted' else []
 
 # Загрузим вопросы из файла
 with open('questions.json', 'r', encoding='utf-8') as file:
@@ -25,10 +26,15 @@ random.shuffle(QUESTIONS)
 
 current_question = 0  # Индекс текущего вопроса
 
+def access_control(func):
+    async def wrapped(update, context):
+        if ACCESS_MODE == 'restricted' and update.effective_user.id not in ALLOWED_USERS:
+            await update.message.reply_text('К сожалению, у вас нет доступа к этому боту.')
+            return
+        return await func(update, context)
+    return wrapped
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # if update.effective_user.id not in ALLOWED_USERS:
-    #     await update.message.reply_text('К сожалению, у вас нет доступа к этому боту.')
-    #     return
     global current_question
     current_question = 0
     context.user_data['correct_answers'] = 0
