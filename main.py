@@ -14,7 +14,7 @@ load_dotenv()
 TOKEN = os.getenv('TG_TOKEN')
 
 # Загрузка id разрешенных пользователей из .env и преобразование в список чисел
-ALLOWED_USERS = list(map(int, os.getenv('ALLOWED_USERS', '').split(',')))
+#ALLOWED_USERS = list(map(int, os.getenv('ALLOWED_USERS', '').split(',')))
 
 # Загрузим вопросы из файла
 with open('questions.json', 'r', encoding='utf-8') as file:
@@ -26,9 +26,9 @@ random.shuffle(QUESTIONS)
 current_question = 0  # Индекс текущего вопроса
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if update.effective_user.id not in ALLOWED_USERS:
-        await update.message.reply_text('К сожалению, у вас нет доступа к этому боту.')
-        return
+    # if update.effective_user.id not in ALLOWED_USERS:
+    #     await update.message.reply_text('К сожалению, у вас нет доступа к этому боту.')
+    #     return
     global current_question
     current_question = 0
     context.user_data['correct_answers'] = 0
@@ -91,19 +91,21 @@ async def handle_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(context.user_data['full_quote'])
         context.user_data.pop('full_quote', None)
 
-def access_control(func):
-    async def wrapped(update, context):
-        if update.effective_user.id not in ALLOWED_USERS:
-            await update.message.reply_text('К сожалению, у вас нет доступа к этому боту.')
-            return
-        return await func(update, context)
-    return wrapped
+# def access_control(func):
+#     async def wrapped(update, context):
+#         if update.effective_user.id not in ALLOWED_USERS:
+#             await update.message.reply_text('К сожалению, у вас нет доступа к этому боту.')
+#             return
+#         return await func(update, context)
+#     return wrapped
 
 def main() -> None:
     application = Application.builder().token(TOKEN).build()
 
-    application.add_handler(CommandHandler("start", access_control(start)))
-    application.add_handler(CommandHandler("results", access_control(show_results)))
+    #application.add_handler(CommandHandler("start", access_control(start)))
+    #application.add_handler(CommandHandler("results", access_control(show_results)))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("results", show_results))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
 
     print("Бот запущен")
