@@ -14,7 +14,7 @@ load_dotenv()
 TOKEN = os.getenv('TG_TOKEN')
 
 # Загрузка id разрешенных пользователей из .env и преобразование в список чисел
-#ALLOWED_USERS = list(map(int, os.getenv('ALLOWED_USERS', '').split(',')))
+# ALLOWED_USERS = list(map(int, os.getenv('ALLOWED_USERS', '').split(',')))
 
 # Загрузим вопросы из файла
 with open('questions.json', 'r', encoding='utf-8') as file:
@@ -68,7 +68,7 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
     if len(question_data['quote']) > 150:
-        context.user_data['full_quote'] = question_data['quote']
+        context.user_data['full_quote'] = f"Полная цитата: {question_data['quote']}"
 
 async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     answered_poll = update.poll_answer
@@ -79,6 +79,10 @@ async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if selected_option == correct_option_index:
         context.user_data['correct_answers'] += 1
+
+    if 'full_quote' in context.user_data:
+        await context.user_data['message'].reply_text(context.user_data['full_quote'])
+        context.user_data.pop('full_quote', None)
 
     await next_question(update, context)
 
@@ -91,28 +95,15 @@ async def handle_quote(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await update.message.reply_text(context.user_data['full_quote'])
         context.user_data.pop('full_quote', None)
 
-# def access_control(func):
-#     async def wrapped(update, context):
-#         if update.effective_user.id not in ALLOWED_USERS:
-#             await update.message.reply_text('К сожалению, у вас нет доступа к этому боту.')
-#             return
-#         return await func(update, context)
-#     return wrapped
-
-def main() -> None:
+if __name__ == '__main__':
     application = Application.builder().token(TOKEN).build()
 
-    #application.add_handler(CommandHandler("start", access_control(start)))
-    #application.add_handler(CommandHandler("results", access_control(show_results)))
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("results", show_results))
+    application.add_handler(CommandHandler('start', start))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_quote))
 
     print("Бот запущен")
     try:
         application.run_polling()
     finally:
         print("Бот остановлен")
-
-if __name__ == '__main__':
-    main()
