@@ -106,6 +106,7 @@ if __name__ == '__main__':
 
     application.add_handler(CommandHandler('start', start))
     application.add_handler(PollAnswerHandler(handle_poll_answer))
+    application.add_handler(CommandHandler("results", show_results))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_quote))
 
     print("Бот запущен")
