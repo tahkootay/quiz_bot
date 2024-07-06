@@ -1,6 +1,7 @@
 import json
 import os
-import random
+#import random
+import asyncio
 from telegram import Update
 from telegram.ext import (
     Application, CommandHandler, PollAnswerHandler, ContextTypes, MessageHandler, filters
@@ -18,11 +19,12 @@ ACCESS_MODE = os.getenv('ACCESS_MODE', 'restricted')  # 'open' для досту
 ALLOWED_USERS = list(map(int, os.getenv('ALLOWED_USERS', '').split(','))) if ACCESS_MODE == 'restricted' else []
 
 # Загрузим вопросы из файла
-with open('questions.json', 'r', encoding='utf-8') as file:
+with open('quest_courier.json', 'r', encoding='utf-8') as file:
+#with open('questions.json', 'r', encoding='utf-8') as file:
     QUESTIONS = json.load(file)
 
 # Перемешаем вопросы
-random.shuffle(QUESTIONS)
+#random.shuffle(QUESTIONS)
 
 current_question = 0  # Индекс текущего вопроса
 
@@ -64,7 +66,7 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         message = update.message if update.message else update.callback_query.message
         context.user_data['message'] = message
 
-    await message.reply_poll(
+    poll_message = await message.reply_poll(
         question=question_data['question'],
         options=options,
         type='quiz',
@@ -75,6 +77,38 @@ async def ask_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     if len(question_data['quote']) > 150:
         context.user_data['full_quote'] = f"Полная цитата: {question_data['quote']}"
+
+    context.user_data['poll_message'] = poll_message
+    context.user_data['poll_message_id'] = poll_message.message_id
+    context.user_data['chat_id'] = poll_message.chat_id
+    context.user_data['time_left'] = 30  # Начальное время (30 секунд)
+
+    job = context.job_queue.run_repeating(countdown_timer, interval=1, first=0,
+                                          context={'chat_id': poll_message.chat_id,
+                                                   'message_id': poll_message.message_id,
+                                                   'update': update,
+                                                   'context': context})
+    context.user_data['job'] = job
+
+async def countdown_timer(context):
+    chat_id = context.job.context['chat_id']
+    poll_message_id = context.job.context['message_id']
+    time_left = context.job.context['context'].user_data['time_left']
+
+    if time_left > 0:
+        context.job.context['context'].user_data['time_left'] -= 1
+        text = f"Осталось времени: {time_left} секунд"
+        try:
+            await context.bot.edit_message_text(text=text, chat_id=chat_id, message_id=poll_message_id + 1)
+        except:
+            pass
+    else:
+        # Если время закончилось, удаляем вопрос
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=poll_message_id)
+        except:
+            pass
+        await next_question(context.job.context['update'], context.job.context['context'])
 
 async def handle_poll_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     answered_poll = update.poll_answer
